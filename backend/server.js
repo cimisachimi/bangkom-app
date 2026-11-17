@@ -3,8 +3,7 @@ const cors = require('cors');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const fs = require('fs');
-const { Sequelize, DataTypes, QueryTypes } = require('sequelize');
-
+const { Sequelize, DataTypes, QueryTypes, Op } = require('sequelize');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -100,14 +99,23 @@ app.post('/api/upload', upload.single('file_excel'), async (req, res) => {
     }
 });
 
-// API 3: Raw Data (Paginasi)
+// API 3: Raw Data (Paginasi & Pencarian)
 app.get('/api/records', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 100;
         const offset = (page - 1) * limit;
+        const search = req.query.search || '';
+
+        const whereClause = search ? {
+            [Op.or]: [
+                { nip: { [Op.like]: `%${search}%` } },
+                { nama: { [Op.like]: `%${search}%` } }
+            ]
+        } : {};
 
         const { count, rows } = await TrainingRecord.findAndCountAll({
+            where: whereClause,
             limit: limit,
             offset: offset,
             order: [['id', 'DESC']]
@@ -146,4 +154,13 @@ sequelize.sync()
 
 process.on('uncaughtException', function (err) {
     console.error('\nERROR MENDADAK:', err);
+});
+// API Khusus Export Excel
+app.get('/api/records/all', async (req, res) => {
+    try {
+        const rows = await TrainingRecord.findAll({ order: [['id', 'DESC']] });
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
