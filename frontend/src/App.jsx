@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 
@@ -18,6 +19,10 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
+  // State untuk Pencarian (Search)
+  const [searchInput, setSearchInput] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
+
   const fetchDashboard = async () => {
     try {
       const response = await axios.get('http://localhost:3000/api/dashboard');
@@ -27,9 +32,9 @@ function App() {
     }
   };
 
-  const fetchRawData = async (pageNumber = 1) => {
+  const fetchRawData = async (pageNumber = 1, searchQuery = '') => {
     try {
-      const response = await axios.get(`http://localhost:3000/api/records?page=${pageNumber}`);
+      const response = await axios.get(`http://localhost:3000/api/records?page=${pageNumber}&search=${searchQuery}`);
       setRecords(response.data.data);
       setPage(response.data.currentPage);
       setTotalPages(response.data.totalPages);
@@ -45,9 +50,9 @@ function App() {
 
   useEffect(() => {
     if (activeTab === 'rawdata') {
-      fetchRawData(page);
+      fetchRawData(page, activeSearch);
     }
-  }, [activeTab, page]);
+  }, [activeTab, page, activeSearch]);
 
   const handleUpload = async (e) => {
     e.preventDefault();
@@ -64,11 +69,36 @@ function App() {
       });
       setMessage(res.data.message);
       fetchDashboard(); 
-      if (activeTab === 'rawdata') fetchRawData(1);
+      if (activeTab === 'rawdata') fetchRawData(1, activeSearch);
     } catch (error) {
       setMessage('Gagal mengupload file.');
     }
     setLoading(false);
+    setTimeout(() => setMessage(''), 5000);
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setActiveSearch(searchInput);
+    setPage(1);
+  };
+
+  const handleExport = async () => {
+    try {
+      setMessage('Menyiapkan file Excel...');
+      const response = await axios.get('http://localhost:3000/api/records/all');
+      
+      const worksheet = XLSX.utils.json_to_sheet(response.data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Data_Bangkom");
+      
+      XLSX.writeFile(workbook, "Export_Data_Bangkom.xlsx");
+      setMessage('Berhasil mengunduh Excel.');
+      setTimeout(() => setMessage(''), 5000);
+    } catch (error) {
+      setMessage('Gagal mengekspor data.');
+      console.error(error);
+    }
   };
 
   return (
@@ -113,16 +143,16 @@ function App() {
       {/* MAIN CONTENT WRAPPER */}
       <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* NAVBAR */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm z-10">
+        {/* NAVBAR CUSTOM WARNA */}
+        <header className="h-16 bg-[#0A3D7A] border-b-4 border-[#F5821F] flex items-center justify-between px-6 shadow-sm z-10">
           <div>
-            <h2 className="text-xl font-semibold text-gray-800">
+            <h2 className="text-xl font-semibold text-white">
               {activeTab === 'dashboard' ? 'Visualisasi Dashboard' : 'Data Mentah (Database)'}
             </h2>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm font-medium text-gray-600 hidden sm:block">Administrator</span>
-            <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-200">
+            <span className="text-sm font-medium text-gray-200 hidden sm:block">Administrator</span>
+            <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#0A3D7A] font-bold shadow-md">
               AD
             </div>
           </div>
@@ -143,13 +173,13 @@ function App() {
                   type="file" 
                   accept=".xlsx, .xls, .csv" 
                   onChange={(e) => setFile(e.target.files[0])} 
-                  className="flex-1 md:flex-none border border-gray-300 p-2 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 md:flex-none border border-gray-300 p-2 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0A3D7A]"
                   required 
                 />
                 <button 
                   type="submit" 
                   disabled={loading}
-                  className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center transition-colors"
+                  className="bg-[#0A3D7A] text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-50 flex items-center transition-colors"
                 >
                   {loading ? (
                     'Memproses...'
@@ -181,15 +211,15 @@ function App() {
                 
                 {/* WIDGET KARTU */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-[#0A3D7A] hover:shadow-md transition-shadow">
                     <p className="text-gray-500 text-sm font-medium">Total Pegawai</p>
                     <h2 className="text-3xl font-bold text-gray-800 mt-2">{data.totalPegawai.toLocaleString()}</h2>
                   </div>
-                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-green-500 hover:shadow-md transition-shadow">
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-[#F5821F] hover:shadow-md transition-shadow">
                     <p className="text-gray-500 text-sm font-medium">Memenuhi 20 JP</p>
                     <div className="flex items-end justify-between mt-2">
-                      <h2 className="text-3xl font-bold text-green-600">{data.memenuhi.toLocaleString()}</h2>
-                      <p className="text-sm text-green-600 font-medium bg-green-50 px-2 py-1 rounded">
+                      <h2 className="text-3xl font-bold text-[#F5821F]">{data.memenuhi.toLocaleString()}</h2>
+                      <p className="text-sm text-[#F5821F] font-medium bg-orange-50 px-2 py-1 rounded">
                         {data.totalPegawai ? ((data.memenuhi/data.totalPegawai)*100).toFixed(1) : 0}%
                       </p>
                     </div>
@@ -198,7 +228,7 @@ function App() {
                     <p className="text-gray-500 text-sm font-medium">Belum Memenuhi</p>
                     <h2 className="text-3xl font-bold text-red-600 mt-2">{data.belumMemenuhi.toLocaleString()}</h2>
                   </div>
-                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-purple-500 hover:shadow-md transition-shadow">
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-gray-400 hover:shadow-md transition-shadow">
                     <p className="text-gray-500 text-sm font-medium">Total Record Pelatihan</p>
                     <h2 className="text-3xl font-bold text-gray-800 mt-2">{data.totalRecords.toLocaleString()}</h2>
                   </div>
@@ -216,7 +246,7 @@ function App() {
                           datasets: [{
                             label: 'Jumlah Peserta Unik',
                             data: data.chartPeserta,
-                            backgroundColor: 'rgba(59, 130, 246, 0.9)',
+                            backgroundColor: '#0A3D7A',
                             borderRadius: 6
                           }]
                         }} 
@@ -232,7 +262,7 @@ function App() {
                             labels: ['Memenuhi (≥20 JP)', 'Belum Memenuhi'],
                             datasets: [{
                               data: [data.memenuhi, data.belumMemenuhi],
-                              backgroundColor: ['#22c55e', '#ef4444'],
+                              backgroundColor: ['#F5821F', '#ef4444'],
                               borderWidth: 0,
                               hoverOffset: 4
                             }]
@@ -248,11 +278,38 @@ function App() {
             {/* TAB: DATA MENTAH */}
             {activeTab === 'rawdata' && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
-                <div className="p-6 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                
+                <div className="p-6 border-b border-gray-200 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                   <h3 className="text-lg font-bold text-gray-800">Tabel Database Riwayat Pelatihan</h3>
-                  <span className="text-sm bg-blue-50 text-blue-700 py-1.5 px-4 rounded-lg font-medium border border-blue-100">
-                    Total: {totalRecords.toLocaleString()} Baris Data
-                  </span>
+                  
+                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
+                    <form onSubmit={handleSearch} className="flex w-full sm:w-auto">
+                      <input 
+                        type="text" 
+                        placeholder="Cari NIP atau Nama..." 
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        className="border border-gray-300 p-2 rounded-l-lg text-sm w-full sm:w-48 focus:outline-none focus:ring-1 focus:ring-[#0A3D7A]"
+                      />
+                      <button type="submit" className="bg-gray-100 border border-gray-300 border-l-0 text-gray-700 px-3 py-2 rounded-r-lg text-sm font-medium hover:bg-gray-200">
+                        Cari
+                      </button>
+                    </form>
+
+                    <button 
+                      onClick={handleExport}
+                      className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 flex items-center justify-center transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Export Excel
+                    </button>
+
+                    <span className="w-full sm:w-auto text-center text-sm bg-blue-50 text-[#0A3D7A] py-2 px-4 rounded-lg font-medium border border-blue-100">
+                      Total: {totalRecords.toLocaleString()} Data
+                    </span>
+                  </div>
                 </div>
                 
                 <div className="overflow-x-auto">
@@ -280,7 +337,7 @@ function App() {
                           </td>
                           <td className="px-6 py-4">{rec.mulai_diklat}</td>
                           <td className="px-6 py-4 text-center">
-                            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-bold text-xs">
+                            <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full font-bold text-xs">
                               {rec.jam_pelajaran}
                             </span>
                           </td>
@@ -288,7 +345,7 @@ function App() {
                       )) : (
                         <tr>
                           <td colSpan="6" className="text-center py-10 text-gray-500">
-                            Belum ada data di database. Silakan unggah file Excel.
+                            {activeSearch ? 'Data tidak ditemukan.' : 'Belum ada data di database. Silakan unggah file Excel.'}
                           </td>
                         </tr>
                       )}
